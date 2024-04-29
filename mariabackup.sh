@@ -167,9 +167,9 @@ __backup_threads=${MYSQL_BACKUP_THREADS:-1}
 __backup_name_format="%Y-%m-%d_%H-%M-%S"
 __backup_name_pattern=".*/[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{2}-[0-9]{2}-[0-9]{2}$"
 
-# enable compress or not, default enable
-__compress=${MYSQL_BACKUP_COMPRESS:-1}
-__compress_target_file=backup.mb.xz
+# enable stream or not, default enable
+__stream=${MYSQL_BACKUP_STREAM:-1}
+__stream_target_file=backup.mb
 
 function most_recent_backup() {
     base_dir="${__backup_root_dir}"
@@ -209,6 +209,11 @@ function purge() {
         days_count=$(eval "$cmd | wc -l") && i=$((i + days_count))
 
         eval "$cmd -exec rm -rf {} \;"
+
+        if [[ $__stream -eq 1 ]]; then
+            eval "$cmd -exec azcopy remove \"${AZCOPY_CONTAINER_URL}{}${AZCOPY_SAS_TOKEN}\" \;"
+        fi
+
     fi
 
     # Purge extra backups.
@@ -221,6 +226,10 @@ function purge() {
         n_count=$(eval "$cmd | wc -l") && i=$((i + n_count))
 
         eval "$cmd | xargs rm -rf"
+
+        if [[ $__stream -eq 1 ]]; then
+            eval "$cmd | xargs -I {} azcopy remove \"${AZCOPY_CONTAINER_URL}{}${AZCOPY_SAS_TOKEN}\""
+        fi
     fi
 
     log $INFO "Purged $i full backups"
@@ -277,10 +286,14 @@ function run_backup() {
 
     log $DEBUG "- Target: \"$target_dir\""
 
-    # compress
-    if [[ $__compress -eq 1 ]]; then
-        target_file="$target_dir/$__compress_target_file"
-        cmd="$cmd --extra-lsndir=$target_dir --stream=mbstream | xz >$target_file"
+    # stream
+    if [[ $__stream -eq 1 ]]; then
+        target_file="$target_dir/$__stream_target_file"
+
+        azcopy_dest="${AZCOPY_CONTAINER_URL}${target_file}${AZCOPY_SAS_TOKEN}"
+        azcopy_cmd="azcopy copy \"$azcopy_dest\" --from-to PipeBlob"
+
+        cmd="$cmd --extra-lsndir=$target_dir --stream=mbstream | $azcopy_cmd"
     fi
 
     log $DEBUG "- CMD: \"$cmd\""
@@ -292,6 +305,11 @@ function run_backup() {
         log $ERROR "- Error:\n$(echo "$output" | sed 's/^/\t\t\t\t/')"
         rm -rf "$target_dir"
         exit 1
+    fi
+
+    if [[ $__stream -eq 1 ]]; then
+        azcopy copy "$target_dir/xtrabackup_checkpoints" "${AZCOPY_CONTAINER_URL}${target_dir}/xtrabackup_checkpoints${AZCOPY_SAS_TOKEN}"
+        azcopy copy "$target_dir/xtrabackup_info" "${AZCOPY_CONTAINER_URL}${target_dir}/xtrabackup_info${AZCOPY_SAS_TOKEN}"
     fi
 
     if [[ $full_backup = 1 ]]; then
