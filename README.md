@@ -1,6 +1,8 @@
 # mariabackup.sh
 Shell script to create full/incremental backups with mariabackup
 
+This fork has been modified to stream backups to an Azure blob storage container.
+
 ## Backup
 
 ```bash
@@ -106,7 +108,7 @@ options:
 - `MYSQL_PASSWORD`: 
 - `MYSQL_BACKUP_ROOT`: backup root path, default: `/backup`
 - `MYSQL_BACKUP_THREADS`: number of threads to use for parallel data file transfer
-- `MYSQL_BACKUP_COMPRESS`: whether to enable backup compression (.xz format)
+- `MYSQL_BACKUP_STREAM`: whether to enable streaming backup to remote storage
 - `MYSQL_BACKUP_KEEP_DAYS`: maximum age of full backups
 - `MYSQL_BACKUP_KEEP_N`: maximum number of full backups
 - `MYSQL_BACKUP_LOG_LEVEL`: log level, one of debug, info, warn, error
