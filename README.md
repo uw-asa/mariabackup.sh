@@ -1,7 +1,7 @@
 # mariabackup.sh
 Shell script to create full/incremental backups with mariabackup
 
-This fork has been modified to stream backups to an Azure blob storage container.
+This fork has been modified to stream backups to an Azure blob storage container. Requires azcopy.
 
 ## Backup
 
@@ -102,6 +102,8 @@ options:
 
 ## Environment variable configuration
 
+- `AZCOPY_CONTAINER_URL`: The URL for the destination container, without SAS token
+- `AZCOPY_SAS_TOKEN`: The SAS token part of the destination container URL, beginning with "?"
 - `MYSQL_HOST`: 
 - `MYSQL_PORT`: 
 - `MYSQL_USER`: 
